@@ -1,4 +1,3 @@
-// app/ingredients/page.tsx
 'use client'
 
 import { Button } from '@/components/ui/button'
@@ -34,6 +33,11 @@ export default function IngredientsPage() {
 
   // Получаем данные из API
   const { data, isLoading, error } = useIngredients(page, pageSize, filters)
+
+  // Выводим ошибку в консоль для отладки
+  if (error) {
+    console.error('Error loading ingredients:', error)
+  }
 
   return (
     <div className='space-y-6'>
@@ -72,7 +76,7 @@ export default function IngredientsPage() {
           <IngredientsList
             ingredients={data?.data || []}
             isLoading={isLoading}
-            pagination={data?.meta.pagination}
+            pagination={data?.meta?.pagination}
             onPageChange={setPage}
           />
         </CardContent>

@@ -1,4 +1,4 @@
-// Базовый интерфейс для данных Strapi
+// Базовый интерфейс для данных Strapi с полем attributes
 export interface StrapiData<T> {
   id: number
   attributes: T
@@ -19,19 +19,20 @@ export interface StrapiMeta {
 
 // Интерфейс для ответа API с пагинацией
 export interface StrapiResponse<T> {
-  data: StrapiData<T>[]
+  data: T[]
   meta: StrapiMeta
 }
 
 // Интерфейс для ответа API с одним объектом
 export interface StrapiSingleResponse<T> {
-  data: StrapiData<T>
+  data: T
   meta: Record<string, any>
 }
 
 // Интерфейс для ингредиента
 export interface Ingredient {
-  id: number
+  id?: number
+  documentId: string
   name: string
   packageSize?: number
   packageUnit?: string
@@ -39,22 +40,25 @@ export interface Ingredient {
   pricePerUnit?: number | null
   inStock?: boolean
   description?: string
+  createdAt?: string
+  updatedAt?: string
+  publishedAt?: string
 }
 
 // Интерфейс для рецепта
 export interface Recipe {
-  id: number
+  id?: number
   name: string
   type: string
   description?: string
-  cost: number
-  price: number
+  cost?: number
+  price?: number
   ingredients?: RecipeIngredient[]
 }
 
 // Интерфейс для ингредиента в рецепте
 export interface RecipeIngredient {
-  id: number
+  id?: number
   ingredientId: number
   name: string
   amount: number
@@ -64,7 +68,7 @@ export interface RecipeIngredient {
 
 // Интерфейс для клиента
 export interface Client {
-  id: number
+  id?: number
   name: string
   phone: string
   email?: string
@@ -76,7 +80,7 @@ export interface Client {
 
 // Интерфейс для заказа
 export interface Order {
-  id: number
+  id?: number
   clientId: number
   client: string
   products: OrderProduct[]
@@ -90,7 +94,7 @@ export interface Order {
 
 // Интерфейс для продукта в заказе
 export interface OrderProduct {
-  id: number
+  id?: number
   recipeId: number
   name: string
   option: string

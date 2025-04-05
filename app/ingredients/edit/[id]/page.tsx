@@ -1,6 +1,7 @@
 'use client'
 
 import type React from 'react'
+import { use } from 'react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -24,17 +25,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useIngredient, useUpdateIngredient } from '@/hooks/use-ingredients'
 import type { Ingredient } from '@/types/api'
-import { normalizeData } from '@/utils/strapi'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/components/ui/use-toast'
+
+// Определяем тип для параметров страницы
+interface PageParams {
+  id: string
+}
 
 export default function EditIngredientPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<PageParams>
 }) {
+  // Используем React.use для доступа к params
+  const unwrappedParams = use(params)
+  const documentId = unwrappedParams.id
+
   const router = useRouter()
-  const { data: ingredientData, isLoading, error } = useIngredient(params.id)
+  const { data: ingredientData, isLoading, error } = useIngredient(documentId)
   const updateIngredient = useUpdateIngredient()
 
   const [ingredient, setIngredient] = useState<Partial<Ingredient>>({
@@ -73,18 +82,18 @@ export default function EditIngredientPage({
   useEffect(() => {
     if (ingredientData) {
       try {
-        const normalizedIngredient = normalizeData(ingredientData)
+        // Данные уже в плоском формате, просто используем их
         setIngredient({
-          name: normalizedIngredient.name || '',
-          packageSize: normalizedIngredient.packageSize || 0,
-          packageUnit: normalizedIngredient.packageUnit || 'г',
-          packagePrice: normalizedIngredient.packagePrice || 0,
-          pricePerUnit: normalizedIngredient.pricePerUnit || null,
-          inStock: normalizedIngredient.inStock ?? true,
-          description: normalizedIngredient.description || '',
+          name: ingredientData.name || '',
+          packageSize: ingredientData.packageSize || 0,
+          packageUnit: ingredientData.packageUnit || 'г',
+          packagePrice: ingredientData.packagePrice || 0,
+          pricePerUnit: ingredientData.pricePerUnit || null,
+          inStock: ingredientData.inStock ?? true,
+          description: ingredientData.description || '',
         })
       } catch (error) {
-        console.error('Error normalizing ingredient data:', error)
+        console.error('Error processing ingredient data:', error)
         toast({
           title: 'Ошибка данных',
           description: 'Формат данных ингредиента некорректен',
@@ -132,7 +141,7 @@ export default function EditIngredientPage({
 
     try {
       await updateIngredient.mutateAsync({
-        id: params.id,
+        id: documentId,
         data: ingredient,
       })
       toast({

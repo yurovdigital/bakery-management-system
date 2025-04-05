@@ -1,47 +1,53 @@
-// hooks/use-ingredients.ts
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  fetchWithPagination,
   fetchById,
+  fetchWithPagination,
   create,
   update,
   remove,
 } from '@/lib/api-client'
-import { Ingredient, StrapiData, StrapiResponse } from '@/types/api'
 import { toast } from '@/components/ui/use-toast'
-
-// Ключи запросов для React Query
-const INGREDIENTS_QUERY_KEY = 'ingredients'
+import type { Ingredient } from '@/types/api'
 
 // Получение списка ингредиентов
 export function useIngredients(page = 1, pageSize = 25, filters = {}) {
-  return useQuery<StrapiResponse<StrapiData<Ingredient>[]>>({
-    queryKey: [INGREDIENTS_QUERY_KEY, page, pageSize, filters],
-    queryFn: () => fetchWithPagination('ingredients', page, pageSize, filters),
+  return useQuery({
+    queryKey: ['ingredients', page, pageSize, filters],
+    queryFn: () => fetchWithPagination('/ingredients', page, pageSize, filters),
+    staleTime: 1000 * 60 * 5, // 5 минут
   })
 }
 
-// Получение одного ингредиента по ID
-export function useIngredient(id: number | string | null) {
-  return useQuery<StrapiData<Ingredient>>({
-    queryKey: [INGREDIENTS_QUERY_KEY, id],
-    queryFn: () => fetchById('ingredients', id!),
-    enabled: !!id, // Запрос выполняется только если id не null
+// Получение одного ингредиента
+export function useIngredient(id?: string | number) {
+  return useQuery({
+    queryKey: ['ingredient', id],
+    queryFn: () => fetchById('/ingredients', id),
+    enabled: !!id,
+    staleTime: 1000 * 60 * 5, // 5 минут
   })
 }
 
-// Создание нового ингредиента
+// Создание ингредиента
 export function useCreateIngredient() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: Partial<Ingredient>) => create('ingredients', data),
+    mutationFn: (data: Partial<Ingredient>) => create('/ingredients', data),
     onSuccess: () => {
-      // Инвалидируем кеш, чтобы обновить список ингредиентов
-      queryClient.invalidateQueries({ queryKey: [INGREDIENTS_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] })
       toast({
-        title: 'Успешно',
-        description: 'Ингредиент успешно добавлен',
+        title: 'Ингредиент создан',
+        description: 'Ингредиент успешно добавлен в систему',
+      })
+    },
+    onError: (error: any) => {
+      console.error('Create ingredient failed:', error)
+      toast({
+        title: 'Ошибка создания',
+        description:
+          'Не удалось создать ингредиент. Пожалуйста, попробуйте еще раз.',
+        variant: 'destructive',
       })
     },
   })
@@ -56,35 +62,49 @@ export function useUpdateIngredient() {
       id,
       data,
     }: {
-      id: number | string
+      id: string | number
       data: Partial<Ingredient>
-    }) => update('ingredients', id, data),
+    }) => update('/ingredients', id, data),
     onSuccess: (_, variables) => {
-      // Инвалидируем кеш для конкретного ингредиента и списка
-      queryClient.invalidateQueries({
-        queryKey: [INGREDIENTS_QUERY_KEY, variables.id],
-      })
-      queryClient.invalidateQueries({ queryKey: [INGREDIENTS_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] })
+      queryClient.invalidateQueries({ queryKey: ['ingredient', variables.id] })
       toast({
-        title: 'Успешно',
-        description: 'Ингредиент успешно обновлен',
+        title: 'Ингредиент обновлен',
+        description: 'Ингредиент успешно обновлен в системе',
+      })
+    },
+    onError: (error: any) => {
+      console.error('Update ingredient failed:', error)
+      toast({
+        title: 'Ошибка обновления',
+        description:
+          'Не удалось обновить ингредиент. Пожалуйста, попробуйте еще раз.',
+        variant: 'destructive',
       })
     },
   })
 }
 
-// Удаление ингредиента
+// Удаление ингредиента по documentId
 export function useDeleteIngredient() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: number | string) => remove('ingredients', id),
+    mutationFn: (documentId: string) => remove('/ingredients', documentId),
     onSuccess: () => {
-      // Инвалидируем кеш, чтобы обновить список ингредиентов
-      queryClient.invalidateQueries({ queryKey: [INGREDIENTS_QUERY_KEY] })
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] })
       toast({
-        title: 'Успешно',
-        description: 'Ингредиент успешно удален',
+        title: 'Ингредиент удален',
+        description: 'Ингредиент успешно удален из системы',
+      })
+    },
+    onError: (error: any) => {
+      console.error('Delete ingredient failed:', error)
+      toast({
+        title: 'Ошибка удаления',
+        description:
+          'Не удалось удалить ингредиент. Пожалуйста, попробуйте еще раз.',
+        variant: 'destructive',
       })
     },
   })

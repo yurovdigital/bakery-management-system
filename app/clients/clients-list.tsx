@@ -1,4 +1,3 @@
-// app/clients/clients-list.tsx
 'use client'
 
 import { Button } from '@/components/ui/button'
@@ -12,9 +11,9 @@ import {
 } from '@/components/ui/table'
 import { EditIcon, PhoneIcon, TrashIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useDeleteClient } from '@/hooks/use-clients'
-import { Client, StrapiData } from '@/types/api'
-import { normalizeData } from '@/utils/strapi'
+import { EmptyState } from '@/components/empty-state'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,13 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useRouter } from 'next/navigation'
+import type { Client } from '@/types/api'
 
 interface ClientsListProps {
-  clients: StrapiData<Client>[]
+  clients: (Client & { id: number })[]
+  isLoading: boolean
 }
 
-export function ClientsList({ clients }: ClientsListProps) {
+export function ClientsList({ clients, isLoading }: ClientsListProps) {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const deleteClient = useDeleteClient()
@@ -45,6 +45,22 @@ export function ClientsList({ clients }: ClientsListProps) {
 
   const handleEdit = (id: number) => {
     router.push(`/clients/edit/${id}`)
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  // Проверка на пустой массив клиентов
+  if (!clients || clients.length === 0) {
+    return (
+      <EmptyState
+        title='Клиенты не найдены'
+        description='Добавьте клиентов, чтобы они появились здесь'
+        createLink='/clients/new'
+        createLabel='Добавить клиента'
+      />
+    )
   }
 
   return (
@@ -61,60 +77,46 @@ export function ClientsList({ clients }: ClientsListProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clients.map(item => {
-              const client = normalizeData(item)
-              return (
-                <TableRow key={client.id}>
-                  <TableCell className='font-medium'>{client.name}</TableCell>
-                  <TableCell>
-                    <div className='flex flex-col'>
-                      <div className='flex items-center'>
-                        <PhoneIcon className='h-3 w-3 mr-1' />
-                        {client.phone}
-                      </div>
-                      {client.email && (
-                        <div className='text-sm text-muted-foreground'>
-                          {client.email}
-                        </div>
-                      )}
+            {clients.map(client => (
+              <TableRow key={client.id}>
+                <TableCell className='font-medium'>
+                  {client.name || 'Без имени'}
+                </TableCell>
+                <TableCell>
+                  <div className='flex flex-col'>
+                    <div className='flex items-center'>
+                      <PhoneIcon className='h-3 w-3 mr-1' />
+                      {client.phone || 'Нет телефона'}
                     </div>
-                  </TableCell>
-                  <TableCell>{client.ordersCount || 0}</TableCell>
-                  <TableCell>
-                    ₽{(client.totalSpent || 0).toLocaleString()}
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    <div className='flex justify-end gap-2'>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => handleEdit(client.id)}
-                      >
-                        <EditIcon className='h-4 w-4' />
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => setDeleteId(client.id)}
-                      >
-                        <TrashIcon className='h-4 w-4' />
-                      </Button>
+                    <div className='text-sm text-muted-foreground'>
+                      {client.email || 'Нет email'}
                     </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-
-            {clients.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className='text-center py-8 text-muted-foreground'
-                >
-                  Клиенты не найдены
+                  </div>
+                </TableCell>
+                <TableCell>{client.orders || 0}</TableCell>
+                <TableCell>
+                  ₽{(client.totalSpent || 0).toLocaleString()}
+                </TableCell>
+                <TableCell className='text-right'>
+                  <div className='flex justify-end gap-2'>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => handleEdit(client.id)}
+                    >
+                      <EditIcon className='h-4 w-4' />
+                    </Button>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => setDeleteId(client.id)}
+                    >
+                      <TrashIcon className='h-4 w-4' />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>

@@ -1,4 +1,3 @@
-// lib/api-client.ts
 import axios from 'axios'
 import { toast } from '@/components/ui/use-toast'
 
@@ -7,7 +6,6 @@ const API_URL =
   process.env.NEXT_PUBLIC_STRAPI_API_URL || 'http://localhost:1337'
 
 // API токен - для клиентских запросов используем токен из переменной окружения
-// Это безопасно, так как NEXT_PUBLIC_ переменные доступны на клиенте
 const API_TOKEN = process.env.NEXT_PUBLIC_STRAPI_API_TOKEN
 
 // Создаем экземпляр axios с базовыми настройками
@@ -20,11 +18,9 @@ const apiClient = axios.create({
 
 // Добавляем токен авторизации к запросам
 apiClient.interceptors.request.use(config => {
-  // Используем токен из переменной окружения для всех запросов
   if (API_TOKEN) {
     config.headers.Authorization = `Bearer ${API_TOKEN}`
   }
-
   return config
 })
 
@@ -34,24 +30,24 @@ apiClient.interceptors.response.use(
   error => {
     console.error('API Error:', error.response?.data || error.message)
 
-    const message =
-      error.response?.data?.error?.message ||
-      'Произошла ошибка при выполнении запроса'
-    const details = error.response?.data?.error?.details || {}
+    // Не показываем уведомление для 404 ошибок (отсутствие данных)
+    if (error.response?.status !== 404) {
+      const message =
+        error.response?.data?.error?.message ||
+        'Произошла ошибка при выполнении запроса'
 
-    // Показываем уведомление об ошибке
-    toast({
-      title: `Ошибка ${error.response?.status || ''}`,
-      description: message,
-      variant: 'destructive',
-    })
+      toast({
+        title: `Ошибка ${error.response?.status || ''}`,
+        description: message,
+        variant: 'destructive',
+      })
+    }
 
     return Promise.reject(error)
   }
 )
 
-// Вспомогательные функции для работы с API
-// Получение данных с пагинацией
+// Получение данных с пагинацией с обработкой пустых данных
 export async function fetchWithPagination(
   endpoint: string,
   page = 1,
@@ -101,27 +97,38 @@ export async function fetchById(endpoint: string, id?: number | string) {
     return null
   }
 }
+
 // Создание новой записи
 export async function create(endpoint: string, data: any) {
   try {
     const response = await apiClient.post(endpoint, { data })
     return response.data.data
   } catch (error) {
-    console.error('Create Error:', error)
+    console.error(`Error creating ${endpoint}:`, error)
     throw error
   }
 }
 
 // Обновление записи
 export async function update(endpoint: string, id: number | string, data: any) {
-  const response = await apiClient.put(`${endpoint}/${id}`, { data })
-  return response.data.data
+  try {
+    const response = await apiClient.put(`${endpoint}/${id}`, { data })
+    return response.data.data
+  } catch (error) {
+    console.error(`Error updating ${endpoint}/${id}:`, error)
+    throw error
+  }
 }
 
 // Удаление записи
 export async function remove(endpoint: string, id: number | string) {
-  const response = await apiClient.delete(`${endpoint}/${id}`)
-  return response.data.data
+  try {
+    const response = await apiClient.delete(`${endpoint}/${id}`)
+    return response.data.data
+  } catch (error) {
+    console.error(`Error deleting ${endpoint}/${id}:`, error)
+    throw error
+  }
 }
 
 export default apiClient

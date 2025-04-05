@@ -1,4 +1,3 @@
-// app/recipes/recipes-list.tsx
 'use client'
 
 import { Button } from '@/components/ui/button'
@@ -13,9 +12,9 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { EditIcon, EyeIcon, TrashIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useDeleteRecipe } from '@/hooks/use-recipes'
-import { Recipe, StrapiData } from '@/types/api'
-import { normalizeData } from '@/utils/strapi'
+import { EmptyState } from '@/components/empty-state'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +25,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useRouter } from 'next/navigation'
+import type { Recipe } from '@/types/api'
+
+// Типы продукции
+type ProductType = 'cake' | 'bento-cake' | 'cupcake' | 'mochi'
 
 // Функция для получения типа продукта на русском
 function getProductTypeLabel(type: string) {
@@ -61,22 +63,15 @@ function getProductTypeBadgeColor(type: string) {
 }
 
 interface RecipesListProps {
-  recipes: StrapiData<Recipe>[]
-  type?: string
+  recipes: (Recipe & { id: number })[]
+  isLoading: boolean
+  type?: ProductType | string
 }
 
-export function RecipesList({ recipes, type }: RecipesListProps) {
+export function RecipesList({ recipes, isLoading, type }: RecipesListProps) {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const deleteRecipe = useDeleteRecipe()
-
-  // Фильтрация рецептов по типу, если указан
-  const filteredRecipes = type
-    ? recipes.filter(recipe => {
-        const normalizedRecipe = normalizeData(recipe)
-        return normalizedRecipe.type === type
-      })
-    : recipes
 
   const handleDelete = async () => {
     if (deleteId) {
@@ -87,6 +82,37 @@ export function RecipesList({ recipes, type }: RecipesListProps) {
 
   const handleEdit = (id: number) => {
     router.push(`/recipes/edit/${id}`)
+  }
+
+  const handleView = (id: number) => {
+    router.push(`/recipes/${id}`)
+  }
+
+  // Фильтрация рецептов по типу, если указан
+  const filteredRecipes = type
+    ? recipes.filter(recipe => recipe.type === type)
+    : recipes
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  // Проверка на пустой массив рецептов
+  if (!filteredRecipes || filteredRecipes.length === 0) {
+    return (
+      <EmptyState
+        title='Рецепты не найдены'
+        description='Добавьте рецепты, чтобы они появились здесь'
+        createLink='/recipes/new'
+        createLabel='Создать рецепт'
+      />
+    )
+  }
+
+  // Функция для безопасного форматирования чисел
+  const formatNumber = (value: number | null | undefined): string => {
+    if (value === undefined || value === null) return '0.00'
+    return value.toFixed(2)
   }
 
   return (
@@ -104,14 +130,18 @@ export function RecipesList({ recipes, type }: RecipesListProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRecipes.map(item => {
-              const recipe = normalizeData(item)
-              const profit = recipe.price - recipe.cost
-              const profitMargin = Math.round((profit / recipe.price) * 100)
+            {filteredRecipes.map(recipe => {
+              const cost = recipe.cost || 0
+              const price = recipe.price || 0
+              const profit = price - cost
+              const profitPercent =
+                price > 0 ? Math.round((profit / price) * 100) : 0
 
               return (
                 <TableRow key={recipe.id}>
-                  <TableCell className='font-medium'>{recipe.name}</TableCell>
+                  <TableCell className='font-medium'>
+                    {recipe.name || 'Без названия'}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant='outline'
@@ -120,16 +150,25 @@ export function RecipesList({ recipes, type }: RecipesListProps) {
                       {getProductTypeLabel(recipe.type)}
                     </Badge>
                   </TableCell>
-                  <TableCell>₽{recipe.cost.toFixed(2)}</TableCell>
-                  <TableCell>₽{recipe.price.toFixed(2)}</TableCell>
+                  <TableCell>₽{formatNumber(cost)}</TableCell>
+                  <TableCell>₽{formatNumber(price)}</TableCell>
                   <TableCell>
-                    <span className='text-green-600'>₽{profit.toFixed(2)}</span>
+                    <span className='text-green-600'>
+                      ₽{formatNumber(profit)}
+                    </span>
                     <span className='text-muted-foreground text-xs ml-1'>
-                      ({profitMargin}%)
+                      ({profitPercent}%)
                     </span>
                   </TableCell>
                   <TableCell className='text-right'>
                     <div className='flex justify-end gap-2'>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        onClick={() => handleView(recipe.id)}
+                      >
+                        <EyeIcon className='h-4 w-4' />
+                      </Button>
                       <Button
                         variant='ghost'
                         size='icon'
@@ -149,17 +188,6 @@ export function RecipesList({ recipes, type }: RecipesListProps) {
                 </TableRow>
               )
             })}
-
-            {filteredRecipes.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className='text-center py-8 text-muted-foreground'
-                >
-                  Рецепты не найдены
-                </TableCell>
-              </TableRow>
-            )}
           </TableBody>
         </Table>
       </div>

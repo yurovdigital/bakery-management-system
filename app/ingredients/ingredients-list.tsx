@@ -1,4 +1,5 @@
-// app/ingredients/ingredients-list.tsx
+'use client'
+
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -10,9 +11,9 @@ import {
 } from '@/components/ui/table'
 import { EditIcon, TrashIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useDeleteIngredient } from '@/hooks/use-ingredients'
-import { Ingredient, StrapiData } from '@/types/api'
-import { normalizeData } from '@/utils/strapi'
+import { EmptyState } from '@/components/empty-state'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,12 +33,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination'
-import { useRouter } from 'next/navigation'
+import type { Ingredient } from '@/types/api'
 
+// Обновляем интерфейс для пропсов компонента
 interface IngredientsListProps {
-  id: number
-  name: string
-  ingredients: StrapiData<Ingredient>[]
+  ingredients: Ingredient[]
   isLoading: boolean
   pagination?: {
     page: number
@@ -55,7 +55,7 @@ export function IngredientsList({
   onPageChange,
 }: IngredientsListProps) {
   const router = useRouter()
-  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const deleteIngredient = useDeleteIngredient()
 
   const handleDelete = async () => {
@@ -65,8 +65,8 @@ export function IngredientsList({
     }
   }
 
-  const handleEdit = (id: number) => {
-    router.push(`/ingredients/edit/${id}`)
+  const handleEdit = (documentId: string) => {
+    router.push(`/ingredients/edit/${documentId}`)
   }
 
   if (isLoading) {
@@ -79,8 +79,20 @@ export function IngredientsList({
     )
   }
 
+  // Проверка на пустой массив ингредиентов
+  if (!ingredients || ingredients.length === 0) {
+    return (
+      <EmptyState
+        title='Ингредиенты не найдены'
+        description='Добавьте ингредиенты, чтобы они появились здесь'
+        createLink='/ingredients/new'
+        createLabel='Добавить ингредиент'
+      />
+    )
+  }
+
   // Функция для безопасного форматирования чисел
-  const formatNumber = (value: number | undefined | null): string => {
+  const formatNumber = (value: number | null | undefined): string => {
     if (value === undefined || value === null) return '0.00'
     return value.toFixed(2)
   }
@@ -99,63 +111,39 @@ export function IngredientsList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ingredients.map(item => {
-              // Проверяем данные перед нормализацией
-              console.log('Raw ingredient data:', item)
-
-              const ingredient = normalizeData(item)
-
-              // Проверяем нормализованные данные
-              console.log('Normalized ingredient:', ingredient)
-
-              return (
-                <TableRow key={ingredient.id}>
-                  <TableCell className='font-medium'>
-                    {ingredient.name || 'Без названия'}
-                  </TableCell>
-                  <TableCell>
-                    {ingredient.packageSize || 0}{' '}
-                    {ingredient.packageUnit || 'г'}
-                  </TableCell>
-                  <TableCell>
-                    ₽{formatNumber(ingredient.packagePrice)}
-                  </TableCell>
-                  <TableCell>
-                    ₽{formatNumber(ingredient.pricePerUnit)} /{' '}
-                    {ingredient.packageUnit || 'г'}
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    <div className='flex justify-end gap-2'>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => handleEdit(ingredient.id)}
-                      >
-                        <EditIcon className='h-4 w-4' />
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => setDeleteId(ingredient.id)}
-                      >
-                        <TrashIcon className='h-4 w-4' />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-
-            {ingredients.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className='text-center py-8 text-muted-foreground'
-                >
-                  Ингредиенты не найдены
+            {ingredients.map(ingredient => (
+              <TableRow key={ingredient.id}>
+                <TableCell className='font-medium'>
+                  {ingredient.name || 'Без названия'}
+                </TableCell>
+                <TableCell>
+                  {ingredient.packageSize || 0} {ingredient.packageUnit || 'г'}
+                </TableCell>
+                <TableCell>₽{formatNumber(ingredient.packagePrice)}</TableCell>
+                <TableCell>
+                  ₽{formatNumber(ingredient.pricePerUnit)} /{' '}
+                  {ingredient.packageUnit || 'г'}
+                </TableCell>
+                <TableCell className='text-right'>
+                  <div className='flex justify-end gap-2'>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => handleEdit(ingredient.documentId)}
+                    >
+                      <EditIcon className='h-4 w-4' />
+                    </Button>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => setDeleteId(ingredient.documentId)}
+                    >
+                      <TrashIcon className='h-4 w-4' />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>

@@ -1,49 +1,69 @@
-// utils/strapi.ts
-import { StrapiData, StrapiRelation, StrapiRelationArray } from '@/types/api'
+import type { StrapiData } from '@/types/api'
 
-// Преобразование данных из формата Strapi в обычный объект
-export function normalizeData<T>(data: StrapiData<T>): T & { id: number } {
+/**
+ * Проверяет, является ли объект данными в формате Strapi с полем attributes
+ * @param data Данные для проверки
+ * @returns true, если данные в формате Strapi с полем attributes
+ */
+function isStrapiAttributesFormat(data: any): data is StrapiData<any> {
+  return (
+    data && typeof data === 'object' && 'id' in data && 'attributes' in data
+  )
+}
+
+/**
+ * Нормализует данные из формата Strapi в обычный объект
+ * @param data Данные в формате Strapi или уже нормализованные данные
+ * @returns Нормализованный объект
+ */
+export function normalizeData<T>(data: any): T & { id: number } {
   if (!data) {
-    console.error('Invalid data for normalization:', data)
+    // Создаем пустой объект с id = 0
     return { id: 0 } as T & { id: number }
   }
 
-  // Проверяем, имеет ли объект структуру с attributes или это уже плоский объект
-  if ('attributes' in data) {
+  // Проверяем, в формате ли Strapi с attributes данные
+  if (isStrapiAttributesFormat(data)) {
     return {
       id: data.id,
       ...data.attributes,
-    }
-  } else {
-    // Данные уже в плоском формате
-    return data as T & { id: number }
+    } as T & { id: number }
   }
+
+  // Если данные уже в плоском формате, возвращаем их как есть
+  return data as T & { id: number }
 }
 
-// Преобразование массива данных из формата Strapi
+/**
+ * Нормализует массив данных из формата Strapi в массив обычных объектов
+ * @param dataArray Массив данных в формате Strapi или уже нормализованные данные
+ * @returns Массив нормализованных объектов
+ */
 export function normalizeDataArray<T>(
-  data: StrapiData<T>[]
+  dataArray: any[] | null
 ): (T & { id: number })[] {
-  if (!data || !Array.isArray(data)) {
-    console.error('Invalid data array for normalization:', data)
+  if (!dataArray || !Array.isArray(dataArray)) {
     return []
   }
 
-  return data.map(item => normalizeData(item))
+  // Проверяем первый элемент, чтобы определить формат данных
+  if (dataArray.length > 0 && isStrapiAttributesFormat(dataArray[0])) {
+    // Данные в формате Strapi с attributes
+    return dataArray.map(item => normalizeData<T>(item))
+  }
+
+  // Данные уже в плоском формате
+  return dataArray as (T & { id: number })[]
 }
 
-// Получение связанного объекта
-export function getRelation<T>(
-  relation: StrapiRelation<T> | undefined
-): (T & { id: number }) | null {
-  if (!relation || !relation.data) return null
-  return normalizeData(relation.data)
-}
-
-// Получение массива связанных объектов
-export function getRelationArray<T>(
-  relation: StrapiRelationArray<T> | undefined
-): (T & { id: number })[] {
-  if (!relation || !relation.data) return []
-  return normalizeDataArray(relation.data)
+/**
+ * Подготавливает данные для отправки в Strapi (удаляет id и другие служебные поля)
+ * @param data Данные для отправки
+ * @returns Подготовленные данные
+ */
+export function prepareDataForStrapi<T extends { id?: number }>(
+  data: T
+): Omit<T, 'id'> {
+  const { id, ...rest } = data
+  return rest
 }

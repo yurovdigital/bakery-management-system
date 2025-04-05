@@ -1,4 +1,3 @@
-// app/orders/orders-list.tsx
 'use client'
 
 import { Button } from '@/components/ui/button'
@@ -13,9 +12,9 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { EditIcon, EyeIcon, TrashIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useDeleteOrder } from '@/hooks/use-orders'
-import { Order, StrapiData } from '@/types/api'
-import { normalizeData, getRelation } from '@/utils/strapi'
+import { EmptyState } from '@/components/empty-state'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useRouter } from 'next/navigation'
+import type { Order } from '@/types/api'
 
 // Типы статусов заказа
 type OrderStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled'
@@ -64,22 +63,15 @@ function getOrderStatusBadgeColor(status: OrderStatus) {
 }
 
 interface OrdersListProps {
-  orders: StrapiData<Order>[]
+  orders: (Order & { id: number })[]
+  isLoading: boolean
   status?: OrderStatus
 }
 
-export function OrdersList({ orders, status }: OrdersListProps) {
+export function OrdersList({ orders, isLoading, status }: OrdersListProps) {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const deleteOrder = useDeleteOrder()
-
-  // Фильтрация заказов по статусу, если указан
-  const filteredOrders = status
-    ? orders.filter(order => {
-        const normalizedOrder = normalizeData(order)
-        return normalizedOrder.status === status
-      })
-    : orders
 
   const handleDelete = async () => {
     if (deleteId) {
@@ -93,7 +85,28 @@ export function OrdersList({ orders, status }: OrdersListProps) {
   }
 
   const handleView = (id: number) => {
-    router.push(`/orders/view/${id}`)
+    router.push(`/orders/${id}`)
+  }
+
+  // Фильтрация заказов по статусу, если указан
+  const filteredOrders = status
+    ? orders.filter(order => order.status === status)
+    : orders
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  // Проверка на пустой массив заказов
+  if (!filteredOrders || filteredOrders.length === 0) {
+    return (
+      <EmptyState
+        title='Заказы не найдены'
+        description='Добавьте заказы, чтобы они появились здесь'
+        createLink='/orders/new'
+        createLabel='Новый заказ'
+      />
+    )
   }
 
   return (
@@ -104,6 +117,7 @@ export function OrdersList({ orders, status }: OrdersListProps) {
             <TableRow>
               <TableHead>№ заказа</TableHead>
               <TableHead>Клиент</TableHead>
+              <TableHead>Продукты</TableHead>
               <TableHead>Сумма</TableHead>
               <TableHead>Дата доставки</TableHead>
               <TableHead>Статус</TableHead>
@@ -111,69 +125,68 @@ export function OrdersList({ orders, status }: OrdersListProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredOrders.map(item => {
-              const order = normalizeData(item)
-              const client = order.client ? getRelation(order.client) : null
-
-              return (
-                <TableRow key={order.id}>
-                  <TableCell className='font-medium'>
-                    #{order.orderNumber}
-                  </TableCell>
-                  <TableCell>{client?.name || 'Клиент не указан'}</TableCell>
-                  <TableCell>₽{order.total.toLocaleString()}</TableCell>
-                  <TableCell>
-                    {new Date(order.deliveryDate).toLocaleDateString('ru-RU')}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant='outline'
-                      className={getOrderStatusBadgeColor(
-                        order.status as OrderStatus
-                      )}
+            {filteredOrders.map(order => (
+              <TableRow key={order.id}>
+                <TableCell className='font-medium'>#{order.id}</TableCell>
+                <TableCell>{order.client || 'Без клиента'}</TableCell>
+                <TableCell>
+                  <div className='flex flex-col gap-1'>
+                    {order.products && order.products.length > 0 ? (
+                      order.products.map((product, index) => (
+                        <span key={index} className='text-sm'>
+                          {product.name} ({product.option})
+                        </span>
+                      ))
+                    ) : (
+                      <span className='text-sm text-muted-foreground'>
+                        Нет продуктов
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>₽{order.total?.toLocaleString() || '0'}</TableCell>
+                <TableCell>
+                  {order.deliveryDate
+                    ? new Date(order.deliveryDate).toLocaleDateString('ru-RU')
+                    : 'Не указана'}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant='outline'
+                    className={getOrderStatusBadgeColor(
+                      order.status as OrderStatus
+                    )}
+                  >
+                    {getOrderStatusLabel(order.status as OrderStatus)}
+                  </Badge>
+                </TableCell>
+                <TableCell className='text-right'>
+                  <div className='flex justify-end gap-2'>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => handleView(order.id)}
                     >
-                      {getOrderStatusLabel(order.status as OrderStatus)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className='text-right'>
-                    <div className='flex justify-end gap-2'>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => handleView(order.id)}
-                      >
-                        <EyeIcon className='h-4 w-4' />
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => handleEdit(order.id)}
-                      >
-                        <EditIcon className='h-4 w-4' />
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        onClick={() => setDeleteId(order.id)}
-                      >
-                        <TrashIcon className='h-4 w-4' />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-
-            {filteredOrders.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className='text-center py-8 text-muted-foreground'
-                >
-                  Заказы не найдены
+                      <EyeIcon className='h-4 w-4' />
+                    </Button>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => handleEdit(order.id)}
+                    >
+                      <EditIcon className='h-4 w-4' />
+                    </Button>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      onClick={() => setDeleteId(order.id)}
+                    >
+                      <TrashIcon className='h-4 w-4' />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>
